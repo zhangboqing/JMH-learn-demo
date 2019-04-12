@@ -1,0 +1,6 @@
+dontinline,org/sample/sample/JMHSample_04_DefaultState.measure_avgt_jmhLoop
+dontinline,org/sample/sample/JMHSample_04_DefaultState.measure_sample_jmhLoop
+dontinline,org/sample/sample/JMHSample_04_DefaultState.measure_ss_jmhStub
+dontinline,org/sample/sample/JMHSample_04_DefaultState.measure_thrpt_jmhLoop
+inline,org/openjdk/jmh/infra/Blackhole.clearSinks
+inline,org/sample/sample/JMHSample_04_DefaultState.measure
