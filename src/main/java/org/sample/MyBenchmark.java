@@ -28,7 +28,7 @@ package org.sample;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
-import org.sample.sample.JMHSample_01_HelloWorld;
+import org.sample.samples.JMHSample_01_HelloWorld;
 
 
 @BenchmarkMode({Mode.AverageTime})

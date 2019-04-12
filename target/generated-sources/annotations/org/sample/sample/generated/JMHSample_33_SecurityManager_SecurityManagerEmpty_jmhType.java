@@ -1,4 +1,0 @@
-package org.sample.sample.generated;
-public class JMHSample_33_SecurityManager_SecurityManagerEmpty_jmhType extends JMHSample_33_SecurityManager_SecurityManagerEmpty_jmhType_B3 {
-}
-
