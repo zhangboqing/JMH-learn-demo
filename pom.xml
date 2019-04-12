@@ -28,7 +28,7 @@ questions.
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.sample</groupId>
-    <artifactId>test</artifactId>
+    <artifactId>JMH-learn-demo</artifactId>
     <version>1.0</version>
     <packaging>jar</packaging>
 
@@ -54,8 +54,8 @@ questions.
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jmh.version>1.0</jmh.version>
-        <javac.target>1.6</javac.target>
+        <jmh.version>1.21</jmh.version>
+        <javac.target>1.8</javac.target>
         <uberjar.name>benchmarks</uberjar.name>
     </properties>
 

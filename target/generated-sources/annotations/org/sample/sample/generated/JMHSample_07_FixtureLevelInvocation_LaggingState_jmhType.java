@@ -1,0 +1,4 @@
+package org.sample.sample.generated;
+public class JMHSample_07_FixtureLevelInvocation_LaggingState_jmhType extends JMHSample_07_FixtureLevelInvocation_LaggingState_jmhType_B3 {
+}
+
