@@ -31,61 +31,58 @@
 package org.sample.sample;
 
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Measurement;
+import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-public class JMHSample_01_HelloWorld {
+import java.util.concurrent.TimeUnit;
+
+@State(Scope.Thread)
+@OutputTimeUnit(TimeUnit.MICROSECONDS)
+@Fork(1)
+public class JMHSample_20_Annotations {
+
+    double x1 = Math.PI;
 
     /*
-     * This is our first benchmark method.
+     * In addition to all the command line options usable at run time,
+     * we have the annotations which can provide the reasonable defaults
+     * for the some of the benchmarks. This is very useful when you are
+     * dealing with lots of benchmarks, and some of them require
+     * special treatment.
      *
-     * JMH works as follows: users annotate the methods with @Benchmark, and
-     * then JMH produces the generated code to run this particular benchmark as
-     * reliably as possible. In general one might think about @Benchmark methods
-     * as the benchmark "payload", the things we want to measure. The
-     * surrounding infrastructure is provided by the harness itself.
-     *
-     * Read the Javadoc for @Benchmark annotation for complete semantics and
-     * restrictions. At this point we only note that the methods names are
-     * non-essential, and it only matters that the methods are marked with
-     * @Benchmark. You can have multiple benchmark methods within the same
-     * class.
-     *
-     * Note: if the benchmark method never finishes, then JMH run never finishes
-     * as well. If you throw an exception from the method body the JMH run ends
-     * abruptly for this benchmark and JMH will run the next benchmark down the
-     * list.
-     *
-     * Although this benchmark measures "nothing" it is a good showcase for the
-     * overheads the infrastructure bear on the code you measure in the method.
-     * There are no magical infrastructures which incur no overhead, and it is
-     * important to know what are the infra overheads you are dealing with. You
-     * might find this thought unfolded in future examples by having the
-     * "baseline" measurements to compare against.
+     * Annotation can also be placed on class, to have the effect over
+     * all the benchmark methods in the same class. The rule is, the
+     * annotation in the closest scope takes the precedence: i.e.
+     * the method-based annotation overrides class-based annotation,
+     * etc.
      */
 
     @Benchmark
-    public void wellHelloThere() {
-        // this method was intentionally left blank.
+    @Warmup(iterations = 5, time = 100, timeUnit = TimeUnit.MILLISECONDS)
+    @Measurement(iterations = 5, time = 100, timeUnit = TimeUnit.MILLISECONDS)
+    public double measure() {
+        return Math.log(x1);
     }
 
     /*
      * ============================== HOW TO RUN THIS TEST: ====================================
      *
-     * You are expected to see the run with large number of iterations, and
-     * very large throughput numbers. You can see that as the estimate of the
-     * harness overheads per method call. In most of our measurements, it is
-     * down to several cycles per call.
+     * Note JMH honors the default annotation settings. You can always override
+     * the defaults via the command line or API.
      *
-     * a) Via command-line:
+     * You can run this test:
+     *
+     * a) Via the command line:
      *    $ mvn clean install
-     *    $ java -jar target/benchmarks.jar JMHSample_01
-     *
-     * JMH generates self-contained JARs, bundling JMH together with it.
-     * The runtime options for the JMH are available with "-h":
-     *    $ java -jar target/benchmarks.jar -h
+     *    $ java -jar target/benchmarks.jar JMHSample_20
      *
      * b) Via the Java API:
      *    (see the JMH homepage for possible caveats when running from IDE:
@@ -94,8 +91,7 @@ public class JMHSample_01_HelloWorld {
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(JMHSample_01_HelloWorld.class.getSimpleName())
-                .forks(1)
+                .include(JMHSample_20_Annotations.class.getSimpleName())
                 .build();
 
         new Runner(opt).run();

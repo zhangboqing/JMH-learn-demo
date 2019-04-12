@@ -30,62 +30,90 @@
  */
 package org.sample.sample;
 
+import org.openjdk.jmh.annotations.AuxCounters;
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Measurement;
+import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-public class JMHSample_01_HelloWorld {
+import java.util.concurrent.TimeUnit;
+
+@OutputTimeUnit(TimeUnit.SECONDS)
+@Warmup(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
+@Fork(1)
+public class JMHSample_23_AuxCounters {
 
     /*
-     * This is our first benchmark method.
-     *
-     * JMH works as follows: users annotate the methods with @Benchmark, and
-     * then JMH produces the generated code to run this particular benchmark as
-     * reliably as possible. In general one might think about @Benchmark methods
-     * as the benchmark "payload", the things we want to measure. The
-     * surrounding infrastructure is provided by the harness itself.
-     *
-     * Read the Javadoc for @Benchmark annotation for complete semantics and
-     * restrictions. At this point we only note that the methods names are
-     * non-essential, and it only matters that the methods are marked with
-     * @Benchmark. You can have multiple benchmark methods within the same
-     * class.
-     *
-     * Note: if the benchmark method never finishes, then JMH run never finishes
-     * as well. If you throw an exception from the method body the JMH run ends
-     * abruptly for this benchmark and JMH will run the next benchmark down the
-     * list.
-     *
-     * Although this benchmark measures "nothing" it is a good showcase for the
-     * overheads the infrastructure bear on the code you measure in the method.
-     * There are no magical infrastructures which incur no overhead, and it is
-     * important to know what are the infra overheads you are dealing with. You
-     * might find this thought unfolded in future examples by having the
-     * "baseline" measurements to compare against.
+     * In some weird cases you need to get the separate throughput/time
+     * metrics for the benchmarked code depending on the outcome of the
+     * current code. Trying to accommodate the cases like this, JMH optionally
+     * provides the special annotation which treats @State objects
+     * as the object bearing user counters. See @AuxCounters javadoc for
+     * the limitations.
+     */
+
+    @State(Scope.Thread)
+    @AuxCounters(AuxCounters.Type.OPERATIONS)
+    public static class OpCounters {
+        // These fields would be counted as metrics
+        public int case1;
+        public int case2;
+
+        // This accessor will also produce a metric
+        public int total() {
+            return case1 + case2;
+        }
+    }
+
+    @State(Scope.Thread)
+    @AuxCounters(AuxCounters.Type.EVENTS)
+    public static class EventCounters {
+        // This field would be counted as metric
+        public int wows;
+    }
+
+    /*
+     * This code measures the "throughput" in two parts of the branch.
+     * The @AuxCounters state above holds the counters which we increment
+     * ourselves, and then let JMH to use their values in the performance
+     * calculations.
      */
 
     @Benchmark
-    public void wellHelloThere() {
-        // this method was intentionally left blank.
+    public void splitBranch(OpCounters counters) {
+        if (Math.random() < 0.1) {
+            counters.case1++;
+        } else {
+            counters.case2++;
+        }
+    }
+
+    @Benchmark
+    public void runSETI(EventCounters counters) {
+        float random = (float) Math.random();
+        float wowSignal = (float) Math.PI / 4;
+        if (random == wowSignal) {
+            // WOW, that's unusual.
+            counters.wows++;
+        }
     }
 
     /*
      * ============================== HOW TO RUN THIS TEST: ====================================
      *
-     * You are expected to see the run with large number of iterations, and
-     * very large throughput numbers. You can see that as the estimate of the
-     * harness overheads per method call. In most of our measurements, it is
-     * down to several cycles per call.
+     * You can run this test:
      *
-     * a) Via command-line:
+     * a) Via the command line:
      *    $ mvn clean install
-     *    $ java -jar target/benchmarks.jar JMHSample_01
-     *
-     * JMH generates self-contained JARs, bundling JMH together with it.
-     * The runtime options for the JMH are available with "-h":
-     *    $ java -jar target/benchmarks.jar -h
+     *    $ java -jar target/benchmarks.jar JMHSample_23
      *
      * b) Via the Java API:
      *    (see the JMH homepage for possible caveats when running from IDE:
@@ -94,8 +122,7 @@ public class JMHSample_01_HelloWorld {
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(JMHSample_01_HelloWorld.class.getSimpleName())
-                .forks(1)
+                .include(JMHSample_23_AuxCounters.class.getSimpleName())
                 .build();
 
         new Runner(opt).run();

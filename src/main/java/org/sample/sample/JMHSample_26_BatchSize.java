@@ -31,82 +31,96 @@
 package org.sample.sample;
 
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Level;
+import org.openjdk.jmh.annotations.Measurement;
+import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-public class JMHSample_03_States {
+import java.util.LinkedList;
+import java.util.List;
+
+@State(Scope.Thread)
+public class JMHSample_26_BatchSize {
 
     /*
-     * Most of the time, you need to maintain some state while the benchmark is
-     * running. Since JMH is heavily used to build concurrent benchmarks, we
-     * opted for an explicit notion of state-bearing objects.
+     * Sometimes you need to evaluate operation which doesn't have
+     * the steady state. The cost of a benchmarked operation may
+     * significantly vary from invocation to invocation.
      *
-     * Below are two state objects. Their class names are not essential, it
-     * matters they are marked with @State. These objects will be instantiated
-     * on demand, and reused during the entire benchmark trial.
+     * In this case, using the timed measurements is not a good idea,
+     * and the only acceptable benchmark mode is a single shot. On the
+     * other hand, the operation may be too small for reliable single
+     * shot measurement.
      *
-     * The important property is that state is always instantiated by one of
-     * those benchmark threads which will then have the access to that state.
-     * That means you can initialize the fields as if you do that in worker
-     * threads (ThreadLocals are yours, etc).
+     * We can use "batch size" parameter to describe the number of
+     * benchmark calls to do per one invocation without looping the method
+     * manually and protect from problems described in JMHSample_11_Loops.
      */
-
-    @State(Scope.Benchmark)
-    public static class BenchmarkState {
-        volatile double x = Math.PI;
-    }
-
-    @State(Scope.Thread)
-    public static class ThreadState {
-        volatile double x = Math.PI;
-    }
 
     /*
-     * Benchmark methods can reference the states, and JMH will inject the
-     * appropriate states while calling these methods. You can have no states at
-     * all, or have only one state, or have multiple states referenced. This
-     * makes building multi-threaded benchmark a breeze.
-     *
-     * For this exercise, we have two methods.
+     * Suppose we want to measure insertion in the middle of the list.
      */
+
+    List<String> list = new LinkedList<>();
 
     @Benchmark
-    public void measureUnshared(ThreadState state) {
-        // All benchmark threads will call in this method.
-        //
-        // However, since ThreadState is the Scope.Thread, each thread
-        // will have it's own copy of the state, and this benchmark
-        // will measure unshared case.
-        state.x++;
+    @Warmup(iterations = 5, time = 1)
+    @Measurement(iterations = 5, time = 1)
+    @BenchmarkMode(Mode.AverageTime)
+    public List<String> measureWrong_1() {
+        list.add(list.size() / 2, "something");
+        return list;
     }
 
     @Benchmark
-    public void measureShared(BenchmarkState state) {
-        // All benchmark threads will call in this method.
-        //
-        // Since BenchmarkState is the Scope.Benchmark, all threads
-        // will share the state instance, and we will end up measuring
-        // shared case.
-        state.x++;
+    @Warmup(iterations = 5, time = 5)
+    @Measurement(iterations = 5, time = 5)
+    @BenchmarkMode(Mode.AverageTime)
+    public List<String> measureWrong_5() {
+        list.add(list.size() / 2, "something");
+        return list;
+    }
+
+    /*
+     * This is what you do with JMH.
+     */
+    @Benchmark
+    @Warmup(iterations = 5, batchSize = 5000)
+    @Measurement(iterations = 5, batchSize = 5000)
+    @BenchmarkMode(Mode.SingleShotTime)
+    public List<String> measureRight() {
+        list.add(list.size() / 2, "something");
+        return list;
+    }
+
+    @Setup(Level.Iteration)
+    public void setup(){
+        list.clear();
     }
 
     /*
      * ============================== HOW TO RUN THIS TEST: ====================================
      *
-     * You are expected to see the drastic difference in shared and unshared cases,
-     * because you either contend for single memory location, or not. This effect
-     * is more articulated on large machines.
+     * You can see completely different results for measureWrong_1 and measureWrong_5; this
+     * is because the workload has no steady state. The result of the workload is dependent
+     * on the measurement time. measureRight does not have this drawback, because it measures
+     * the N invocations of the test method and measures it's time.
+     *
+     * We measure batch of 5000 invocations and consider the batch as the single operation.
      *
      * You can run this test:
      *
      * a) Via the command line:
      *    $ mvn clean install
-     *    $ java -jar target/benchmarks.jar JMHSample_03 -t 4 -f 1
-     *    (we requested 4 threads, single fork; there are also other options, see -h)
+     *    $ java -jar target/benchmarks.jar JMHSample_26 -f 1
      *
      * b) Via the Java API:
      *    (see the JMH homepage for possible caveats when running from IDE:
@@ -115,8 +129,7 @@ public class JMHSample_03_States {
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(JMHSample_03_States.class.getSimpleName())
-                .threads(4)
+                .include(JMHSample_26_BatchSize.class.getSimpleName())
                 .forks(1)
                 .build();
 

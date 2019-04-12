@@ -31,82 +31,108 @@
 package org.sample.sample;
 
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Measurement;
+import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.Warmup;
+import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-public class JMHSample_03_States {
+import java.util.concurrent.TimeUnit;
 
-    /*
-     * Most of the time, you need to maintain some state while the benchmark is
-     * running. Since JMH is heavily used to build concurrent benchmarks, we
-     * opted for an explicit notion of state-bearing objects.
+@BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.NANOSECONDS)
+@Warmup(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
+@Fork(1)
+@State(Scope.Thread)
+public class JMHSample_28_BlackholeHelpers {
+
+    /**
+     * Sometimes you need the black hole not in @Benchmark method, but in
+     * helper methods, because you want to pass it through to the concrete
+     * implementation which is instantiated in helper methods. In this case,
+     * you can request the black hole straight in the helper method signature.
+     * This applies to both @Setup and @TearDown methods, and also to other
+     * JMH infrastructure objects, like Control.
      *
-     * Below are two state objects. Their class names are not essential, it
-     * matters they are marked with @State. These objects will be instantiated
-     * on demand, and reused during the entire benchmark trial.
-     *
-     * The important property is that state is always instantiated by one of
-     * those benchmark threads which will then have the access to that state.
-     * That means you can initialize the fields as if you do that in worker
-     * threads (ThreadLocals are yours, etc).
+     * Below is the variant of {@link org.openjdk.jmh.samples.JMHSample_08_DeadCode}
+     * test, but wrapped in the anonymous classes.
      */
 
-    @State(Scope.Benchmark)
-    public static class BenchmarkState {
-        volatile double x = Math.PI;
+    public interface Worker {
+        void work();
     }
 
-    @State(Scope.Thread)
-    public static class ThreadState {
-        volatile double x = Math.PI;
-    }
+    private Worker workerBaseline;
+    private Worker workerRight;
+    private Worker workerWrong;
 
-    /*
-     * Benchmark methods can reference the states, and JMH will inject the
-     * appropriate states while calling these methods. You can have no states at
-     * all, or have only one state, or have multiple states referenced. This
-     * makes building multi-threaded benchmark a breeze.
-     *
-     * For this exercise, we have two methods.
-     */
+    @Setup
+    public void setup(final Blackhole bh) {
+        workerBaseline = new Worker() {
+            double x;
+
+            @Override
+            public void work() {
+                // do nothing
+            }
+        };
+
+        workerWrong = new Worker() {
+            double x;
+
+            @Override
+            public void work() {
+                Math.log(x);
+            }
+        };
+
+        workerRight = new Worker() {
+            double x;
+
+            @Override
+            public void work() {
+                bh.consume(Math.log(x));
+            }
+        };
+
+    }
 
     @Benchmark
-    public void measureUnshared(ThreadState state) {
-        // All benchmark threads will call in this method.
-        //
-        // However, since ThreadState is the Scope.Thread, each thread
-        // will have it's own copy of the state, and this benchmark
-        // will measure unshared case.
-        state.x++;
+    public void baseline() {
+        workerBaseline.work();
     }
 
     @Benchmark
-    public void measureShared(BenchmarkState state) {
-        // All benchmark threads will call in this method.
-        //
-        // Since BenchmarkState is the Scope.Benchmark, all threads
-        // will share the state instance, and we will end up measuring
-        // shared case.
-        state.x++;
+    public void measureWrong() {
+        workerWrong.work();
+    }
+
+    @Benchmark
+    public void measureRight() {
+        workerRight.work();
     }
 
     /*
      * ============================== HOW TO RUN THIS TEST: ====================================
      *
-     * You are expected to see the drastic difference in shared and unshared cases,
-     * because you either contend for single memory location, or not. This effect
-     * is more articulated on large machines.
+     * You will see measureWrong() running on-par with baseline().
+     * Both measureRight() are measuring twice the baseline, so the logs are intact.
      *
      * You can run this test:
      *
      * a) Via the command line:
      *    $ mvn clean install
-     *    $ java -jar target/benchmarks.jar JMHSample_03 -t 4 -f 1
-     *    (we requested 4 threads, single fork; there are also other options, see -h)
+     *    $ java -jar target/benchmarks.jar JMHSample_28
      *
      * b) Via the Java API:
      *    (see the JMH homepage for possible caveats when running from IDE:
@@ -115,9 +141,7 @@ public class JMHSample_03_States {
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(JMHSample_03_States.class.getSimpleName())
-                .threads(4)
-                .forks(1)
+                .include(JMHSample_28_BlackholeHelpers.class.getSimpleName())
                 .build();
 
         new Runner(opt).run();

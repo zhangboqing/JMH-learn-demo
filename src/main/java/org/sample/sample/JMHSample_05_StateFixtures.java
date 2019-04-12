@@ -30,62 +30,89 @@
  */
 package org.sample.sample;
 
-import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-public class JMHSample_01_HelloWorld {
+@State(Scope.Thread)
+public class JMHSample_05_StateFixtures {
+
+    double x;
 
     /*
-     * This is our first benchmark method.
+     * Since @State objects are kept around during the lifetime of the
+     * benchmark, it helps to have the methods which do state housekeeping.
+     * These are usual fixture methods, you are probably familiar with them from
+     * JUnit and TestNG.
      *
-     * JMH works as follows: users annotate the methods with @Benchmark, and
-     * then JMH produces the generated code to run this particular benchmark as
-     * reliably as possible. In general one might think about @Benchmark methods
-     * as the benchmark "payload", the things we want to measure. The
-     * surrounding infrastructure is provided by the harness itself.
+     * Fixture methods make sense only on @State objects, and JMH will fail to
+     * compile the test otherwise.
      *
-     * Read the Javadoc for @Benchmark annotation for complete semantics and
-     * restrictions. At this point we only note that the methods names are
-     * non-essential, and it only matters that the methods are marked with
-     * @Benchmark. You can have multiple benchmark methods within the same
-     * class.
+     * As with the State, fixture methods are only called by those benchmark
+     * threads which are using the state. That means you can operate in the
+     * thread-local context, and (not) use synchronization as if you are
+     * executing in the context of benchmark thread.
      *
-     * Note: if the benchmark method never finishes, then JMH run never finishes
-     * as well. If you throw an exception from the method body the JMH run ends
-     * abruptly for this benchmark and JMH will run the next benchmark down the
-     * list.
-     *
-     * Although this benchmark measures "nothing" it is a good showcase for the
-     * overheads the infrastructure bear on the code you measure in the method.
-     * There are no magical infrastructures which incur no overhead, and it is
-     * important to know what are the infra overheads you are dealing with. You
-     * might find this thought unfolded in future examples by having the
-     * "baseline" measurements to compare against.
+     * Note: fixture methods can also work with static fields, although the
+     * semantics of these operations fall back out of State scope, and obey
+     * usual Java rules (i.e. one static field per class).
+     */
+
+    /*
+     * Ok, let's prepare our benchmark:
+     */
+
+    @Setup
+    public void prepare() {
+        x = Math.PI;
+    }
+
+    /*
+     * And, check the benchmark went fine afterwards:
+     */
+
+    @TearDown
+    public void check() {
+        assert x > Math.PI : "Nothing changed?";
+    }
+
+    /*
+     * This method obviously does the right thing, incrementing the field x
+     * in the benchmark state. check() will never fail this way, because
+     * we are always guaranteed to have at least one benchmark call.
      */
 
     @Benchmark
-    public void wellHelloThere() {
-        // this method was intentionally left blank.
+    public void measureRight() {
+        x++;
+    }
+
+    /*
+     * This method, however, will fail the check(), because we deliberately
+     * have the "typo", and increment only the local variable. This should
+     * not pass the check, and JMH will fail the run.
+     */
+
+    @Benchmark
+    public void measureWrong() {
+        double x = 0;
+        x++;
     }
 
     /*
      * ============================== HOW TO RUN THIS TEST: ====================================
      *
-     * You are expected to see the run with large number of iterations, and
-     * very large throughput numbers. You can see that as the estimate of the
-     * harness overheads per method call. In most of our measurements, it is
-     * down to several cycles per call.
+     * You can see measureRight() yields the result, and measureWrong() fires
+     * the assert at the end of the run.
      *
-     * a) Via command-line:
+     * You can run this test:
+     *
+     * a) Via the command line:
      *    $ mvn clean install
-     *    $ java -jar target/benchmarks.jar JMHSample_01
-     *
-     * JMH generates self-contained JARs, bundling JMH together with it.
-     * The runtime options for the JMH are available with "-h":
-     *    $ java -jar target/benchmarks.jar -h
+     *    $ java -ea -jar target/benchmarks.jar JMHSample_05 -f 1
+     *    (we requested single fork; there are also other options, see -h)
      *
      * b) Via the Java API:
      *    (see the JMH homepage for possible caveats when running from IDE:
@@ -94,8 +121,9 @@ public class JMHSample_01_HelloWorld {
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(JMHSample_01_HelloWorld.class.getSimpleName())
+                .include(JMHSample_05_StateFixtures.class.getSimpleName())
                 .forks(1)
+                .jvmArgs("-ea")
                 .build();
 
         new Runner(opt).run();

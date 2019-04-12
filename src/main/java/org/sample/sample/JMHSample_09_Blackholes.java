@@ -30,62 +30,90 @@
  */
 package org.sample.sample;
 
-import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-public class JMHSample_01_HelloWorld {
+import java.util.concurrent.TimeUnit;
+
+@BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.NANOSECONDS)
+@State(Scope.Thread)
+public class JMHSample_09_Blackholes {
 
     /*
-     * This is our first benchmark method.
+     * Should your benchmark require returning multiple results, you have to
+     * consider two options (detailed below).
      *
-     * JMH works as follows: users annotate the methods with @Benchmark, and
-     * then JMH produces the generated code to run this particular benchmark as
-     * reliably as possible. In general one might think about @Benchmark methods
-     * as the benchmark "payload", the things we want to measure. The
-     * surrounding infrastructure is provided by the harness itself.
-     *
-     * Read the Javadoc for @Benchmark annotation for complete semantics and
-     * restrictions. At this point we only note that the methods names are
-     * non-essential, and it only matters that the methods are marked with
-     * @Benchmark. You can have multiple benchmark methods within the same
-     * class.
-     *
-     * Note: if the benchmark method never finishes, then JMH run never finishes
-     * as well. If you throw an exception from the method body the JMH run ends
-     * abruptly for this benchmark and JMH will run the next benchmark down the
-     * list.
-     *
-     * Although this benchmark measures "nothing" it is a good showcase for the
-     * overheads the infrastructure bear on the code you measure in the method.
-     * There are no magical infrastructures which incur no overhead, and it is
-     * important to know what are the infra overheads you are dealing with. You
-     * might find this thought unfolded in future examples by having the
-     * "baseline" measurements to compare against.
+     * NOTE: If you are only producing a single result, it is more readable to
+     * use the implicit return, as in JMHSample_08_DeadCode. Do not make your benchmark
+     * code less readable with explicit Blackholes!
+     */
+
+    double x1 = Math.PI;
+    double x2 = Math.PI * 2;
+
+    /*
+     * Baseline measurement: how much single Math.log costs.
      */
 
     @Benchmark
-    public void wellHelloThere() {
-        // this method was intentionally left blank.
+    public double baseline() {
+        return Math.log(x1);
+    }
+
+    /*
+     * While the Math.log(x2) computation is intact, Math.log(x1)
+     * is redundant and optimized out.
+     */
+
+    @Benchmark
+    public double measureWrong() {
+        Math.log(x1);
+        return Math.log(x2);
+    }
+
+    /*
+     * This demonstrates Option A:
+     *
+     * Merge multiple results into one and return it.
+     * This is OK when is computation is relatively heavyweight, and merging
+     * the results does not offset the results much.
+     */
+
+    @Benchmark
+    public double measureRight_1() {
+        return Math.log(x1) + Math.log(x2);
+    }
+
+    /*
+     * This demonstrates Option B:
+     *
+     * Use explicit Blackhole objects, and sink the values there.
+     * (Background: Blackhole is just another @State object, bundled with JMH).
+     */
+
+    @Benchmark
+    public void measureRight_2(Blackhole bh) {
+        bh.consume(Math.log(x1));
+        bh.consume(Math.log(x2));
     }
 
     /*
      * ============================== HOW TO RUN THIS TEST: ====================================
      *
-     * You are expected to see the run with large number of iterations, and
-     * very large throughput numbers. You can see that as the estimate of the
-     * harness overheads per method call. In most of our measurements, it is
-     * down to several cycles per call.
+     * You will see measureWrong() running on-par with baseline().
+     * Both measureRight() are measuring twice the baseline, so the logs are intact.
      *
-     * a) Via command-line:
+     * You can run this test:
+     *
+     * a) Via the command line:
      *    $ mvn clean install
-     *    $ java -jar target/benchmarks.jar JMHSample_01
-     *
-     * JMH generates self-contained JARs, bundling JMH together with it.
-     * The runtime options for the JMH are available with "-h":
-     *    $ java -jar target/benchmarks.jar -h
+     *    $ java -jar target/benchmarks.jar JMHSample_09 -f 1
+     *    (we requested single fork; there are also other options, see -h)
      *
      * b) Via the Java API:
      *    (see the JMH homepage for possible caveats when running from IDE:
@@ -94,11 +122,12 @@ public class JMHSample_01_HelloWorld {
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(JMHSample_01_HelloWorld.class.getSimpleName())
+                .include(JMHSample_09_Blackholes.class.getSimpleName())
                 .forks(1)
                 .build();
 
         new Runner(opt).run();
     }
+
 
 }

@@ -31,61 +31,105 @@
 package org.sample.sample;
 
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-public class JMHSample_01_HelloWorld {
+import java.util.concurrent.TimeUnit;
+
+@BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.NANOSECONDS)
+public class JMHSample_21_ConsumeCPU {
 
     /*
-     * This is our first benchmark method.
+     * At times you require the test to burn some of the cycles doing nothing.
+     * In many cases, you *do* want to burn the cycles instead of waiting.
      *
-     * JMH works as follows: users annotate the methods with @Benchmark, and
-     * then JMH produces the generated code to run this particular benchmark as
-     * reliably as possible. In general one might think about @Benchmark methods
-     * as the benchmark "payload", the things we want to measure. The
-     * surrounding infrastructure is provided by the harness itself.
+     * For these occasions, we have the infrastructure support. Blackholes
+     * can not only consume the values, but also the time! Run this test
+     * to get familiar with this part of JMH.
      *
-     * Read the Javadoc for @Benchmark annotation for complete semantics and
-     * restrictions. At this point we only note that the methods names are
-     * non-essential, and it only matters that the methods are marked with
-     * @Benchmark. You can have multiple benchmark methods within the same
-     * class.
-     *
-     * Note: if the benchmark method never finishes, then JMH run never finishes
-     * as well. If you throw an exception from the method body the JMH run ends
-     * abruptly for this benchmark and JMH will run the next benchmark down the
-     * list.
-     *
-     * Although this benchmark measures "nothing" it is a good showcase for the
-     * overheads the infrastructure bear on the code you measure in the method.
-     * There are no magical infrastructures which incur no overhead, and it is
-     * important to know what are the infra overheads you are dealing with. You
-     * might find this thought unfolded in future examples by having the
-     * "baseline" measurements to compare against.
+     * (Note we use static method because most of the use cases are deep
+     * within the testing code, and propagating blackholes is tedious).
      */
 
     @Benchmark
-    public void wellHelloThere() {
-        // this method was intentionally left blank.
+    public void consume_0000() {
+        Blackhole.consumeCPU(0);
+    }
+
+    @Benchmark
+    public void consume_0001() {
+        Blackhole.consumeCPU(1);
+    }
+
+    @Benchmark
+    public void consume_0002() {
+        Blackhole.consumeCPU(2);
+    }
+
+    @Benchmark
+    public void consume_0004() {
+        Blackhole.consumeCPU(4);
+    }
+
+    @Benchmark
+    public void consume_0008() {
+        Blackhole.consumeCPU(8);
+    }
+
+    @Benchmark
+    public void consume_0016() {
+        Blackhole.consumeCPU(16);
+    }
+
+    @Benchmark
+    public void consume_0032() {
+        Blackhole.consumeCPU(32);
+    }
+
+    @Benchmark
+    public void consume_0064() {
+        Blackhole.consumeCPU(64);
+    }
+
+    @Benchmark
+    public void consume_0128() {
+        Blackhole.consumeCPU(128);
+    }
+
+    @Benchmark
+    public void consume_0256() {
+        Blackhole.consumeCPU(256);
+    }
+
+    @Benchmark
+    public void consume_0512() {
+        Blackhole.consumeCPU(512);
+    }
+
+    @Benchmark
+    public void consume_1024() {
+        Blackhole.consumeCPU(1024);
     }
 
     /*
      * ============================== HOW TO RUN THIS TEST: ====================================
      *
-     * You are expected to see the run with large number of iterations, and
-     * very large throughput numbers. You can see that as the estimate of the
-     * harness overheads per method call. In most of our measurements, it is
-     * down to several cycles per call.
+     * Note the single token is just a few cycles, and the more tokens
+     * you request, then more work is spent (almost linearly)
      *
-     * a) Via command-line:
+     * You can run this test:
+     *
+     * a) Via the command line:
      *    $ mvn clean install
-     *    $ java -jar target/benchmarks.jar JMHSample_01
-     *
-     * JMH generates self-contained JARs, bundling JMH together with it.
-     * The runtime options for the JMH are available with "-h":
-     *    $ java -jar target/benchmarks.jar -h
+     *    $ java -jar target/benchmarks.jar JMHSample_21 -f 1
+     *    (we requested single fork; there are also other options, see -h)
      *
      * b) Via the Java API:
      *    (see the JMH homepage for possible caveats when running from IDE:
@@ -94,7 +138,7 @@ public class JMHSample_01_HelloWorld {
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(JMHSample_01_HelloWorld.class.getSimpleName())
+                .include(JMHSample_21_ConsumeCPU.class.getSimpleName())
                 .forks(1)
                 .build();
 

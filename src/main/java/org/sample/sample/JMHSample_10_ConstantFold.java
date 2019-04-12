@@ -30,62 +30,75 @@
  */
 package org.sample.sample;
 
-import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-public class JMHSample_01_HelloWorld {
+import java.util.concurrent.TimeUnit;
+
+@State(Scope.Thread)
+@BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.NANOSECONDS)
+public class JMHSample_10_ConstantFold {
 
     /*
-     * This is our first benchmark method.
+     * The flip side of dead-code elimination is constant-folding.
      *
-     * JMH works as follows: users annotate the methods with @Benchmark, and
-     * then JMH produces the generated code to run this particular benchmark as
-     * reliably as possible. In general one might think about @Benchmark methods
-     * as the benchmark "payload", the things we want to measure. The
-     * surrounding infrastructure is provided by the harness itself.
+     * If JVM realizes the result of the computation is the same no matter what,
+     * it can cleverly optimize it. In our case, that means we can move the
+     * computation outside of the internal JMH loop.
      *
-     * Read the Javadoc for @Benchmark annotation for complete semantics and
-     * restrictions. At this point we only note that the methods names are
-     * non-essential, and it only matters that the methods are marked with
-     * @Benchmark. You can have multiple benchmark methods within the same
-     * class.
-     *
-     * Note: if the benchmark method never finishes, then JMH run never finishes
-     * as well. If you throw an exception from the method body the JMH run ends
-     * abruptly for this benchmark and JMH will run the next benchmark down the
-     * list.
-     *
-     * Although this benchmark measures "nothing" it is a good showcase for the
-     * overheads the infrastructure bear on the code you measure in the method.
-     * There are no magical infrastructures which incur no overhead, and it is
-     * important to know what are the infra overheads you are dealing with. You
-     * might find this thought unfolded in future examples by having the
-     * "baseline" measurements to compare against.
+     * This can be prevented by always reading the inputs from non-final
+     * instance fields of @State objects, computing the result based on those
+     * values, and follow the rules to prevent DCE.
      */
 
+    // IDEs will say "Oh, you can convert this field to local variable". Don't. Trust. Them.
+    // (While this is normally fine advice, it does not work in the context of measuring correctly.)
+    private double x = Math.PI;
+
+    // IDEs will probably also say "Look, it could be final". Don't. Trust. Them. Either.
+    // (While this is normally fine advice, it does not work in the context of measuring correctly.)
+    private final double wrongX = Math.PI;
+
     @Benchmark
-    public void wellHelloThere() {
-        // this method was intentionally left blank.
+    public double baseline() {
+        // simply return the value, this is a baseline
+        return Math.PI;
+    }
+
+    @Benchmark
+    public double measureWrong_1() {
+        // This is wrong: the source is predictable, and computation is foldable.
+        return Math.log(Math.PI);
+    }
+
+    @Benchmark
+    public double measureWrong_2() {
+        // This is wrong: the source is predictable, and computation is foldable.
+        return Math.log(wrongX);
+    }
+
+    @Benchmark
+    public double measureRight() {
+        // This is correct: the source is not predictable.
+        return Math.log(x);
     }
 
     /*
      * ============================== HOW TO RUN THIS TEST: ====================================
      *
-     * You are expected to see the run with large number of iterations, and
-     * very large throughput numbers. You can see that as the estimate of the
-     * harness overheads per method call. In most of our measurements, it is
-     * down to several cycles per call.
+     * You can see the unrealistically fast calculation in with measureWrong_*(),
+     * while realistic measurement with measureRight().
      *
-     * a) Via command-line:
+     * You can run this test:
+     *
+     * a) Via the command line:
      *    $ mvn clean install
-     *    $ java -jar target/benchmarks.jar JMHSample_01
-     *
-     * JMH generates self-contained JARs, bundling JMH together with it.
-     * The runtime options for the JMH are available with "-h":
-     *    $ java -jar target/benchmarks.jar -h
+     *    $ java -jar target/benchmarks.jar JMHSample_10 -i 5 -f 1
+     *    (we requested single fork; there are also other options, see -h)
      *
      * b) Via the Java API:
      *    (see the JMH homepage for possible caveats when running from IDE:
@@ -94,7 +107,7 @@ public class JMHSample_01_HelloWorld {
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(JMHSample_01_HelloWorld.class.getSimpleName())
+                .include(JMHSample_10_ConstantFold.class.getSimpleName())
                 .forks(1)
                 .build();
 
